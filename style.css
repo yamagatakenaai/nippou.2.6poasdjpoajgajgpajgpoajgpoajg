@@ -560,6 +560,26 @@ button {
   color: white;
 }
 
+.delete-btn {
+  background-color: transparent;
+  color: #ef4444;
+  border: 1px solid #ef4444;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: auto;
+}
+
+.delete-btn:hover {
+  background-color: #ef4444;
+  color: white;
+}
+
 .no-results {
   text-align: center;
   color: var(--text-muted);

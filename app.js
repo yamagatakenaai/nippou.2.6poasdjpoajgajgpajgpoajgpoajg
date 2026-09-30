@@ -891,6 +891,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div style="display: flex; gap: 0.5rem; align-items: center;">
               ${result.imageId ? `<button type="button" class="photo-btn" data-image-id="${result.imageId}"><span class="material-symbols-rounded icon-xs">photo_camera</span>写真</button>` : ''}
+              ${rowId ? `<button type="button" class="delete-btn" data-row="${rowId}" data-image-id="${result.imageId || ''}"><span class="material-symbols-rounded icon-xs">delete</span>削除</button>` : ''}
               ${rowId && hasProgressTag ? `<button type="button" class="done-btn" data-row="${rowId}" data-date="${escapeHtmlAttr(result.date)}" data-time="${escapeHtmlAttr(result.time)}" data-client="${escapeHtmlAttr(result.client)}" data-content="${escapeHtmlAttr(result.content)}"><span class="material-symbols-rounded icon-xs">check_circle</span>完了</button>` : ''}
               ${rowId ? `<button type="button" class="edit-btn" data-row="${rowId}" data-date="${escapeHtmlAttr(result.date)}" data-time="${escapeHtmlAttr(result.time)}" data-client="${escapeHtmlAttr(result.client)}" data-content="${escapeHtmlAttr(result.content)}" data-image-id="${result.imageId || ''}"><span class="material-symbols-rounded icon-xs">edit</span>訂正</button>` : ''}
             </div>
@@ -969,6 +970,58 @@ document.addEventListener('DOMContentLoaded', () => {
     startEditing(rowId, dateVal, timeVal, clientVal, contentVal, imageIdVal);
   };
 
+  const handleDeleteAction = async (rowId, imageId, deleteBtn) => {
+    if (!confirm('この日報を削除しますか？\n（スプレッドシートから完全に削除されます）')) return;
+
+    if (!GAS_URL) {
+      showMessage('先に右上の設定（歯車）ボタンから、GASのURLを設定してください。', 'error');
+      return;
+    }
+
+    const originalText = deleteBtn.innerHTML;
+    deleteBtn.innerHTML = '<span class="material-symbols-rounded icon-xs">sync</span>削除中';
+    deleteBtn.disabled = true;
+
+    try {
+      const urlEncodedData = new URLSearchParams();
+      urlEncodedData.append('action', 'delete');
+      urlEncodedData.append('row', rowId);
+      if (imageId) urlEncodedData.append('imageId', imageId);
+
+      const response = await fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: urlEncodedData.toString()
+      });
+
+      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+      const result = await response.json();
+
+      if (result.status === 'success') {
+        showMessage('日報を削除しました！', 'success');
+        allNippouData = null; // キャッシュクリア
+        if (typeof closeCardModal === 'function') closeCardModal();
+
+        // カレンダー表示モード中ならカレンダー再描画
+        if (isCalendarMode) {
+          loadAllNippouData().then(nippous => {
+            renderCalendar(calendarCurrentYear, calendarCurrentMonth, nippous);
+          });
+        } else {
+          // 検索一覧の再検索
+          searchForm.dispatchEvent(new Event('submit'));
+        }
+      } else {
+        throw new Error(result.message || '削除に失敗しました');
+      }
+    } catch (err) {
+      console.error(err);
+      showMessage('削除処理に失敗しました。', 'error');
+      deleteBtn.innerHTML = originalText;
+      deleteBtn.disabled = false;
+    }
+  };
+
   searchResultsEl.addEventListener('click', async (e) => {
     // 一括変更モード中は拡大表示や個別ボタン処理は無効化する
     if (typeof bulkEditMode !== 'undefined' && bulkEditMode) return;
@@ -977,6 +1030,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const photoBtn = e.target.closest('.photo-btn');
     if (photoBtn) {
       handlePhotoAction(photoBtn.getAttribute('data-image-id'));
+      return;
+    }
+
+    // --- 削除ボタン処理 ---
+    const deleteBtn = e.target.closest('.delete-btn');
+    if (deleteBtn) {
+      const rowId = deleteBtn.getAttribute('data-row');
+      const imageId = deleteBtn.getAttribute('data-image-id') || '';
+      await handleDeleteAction(rowId, imageId, deleteBtn);
       return;
     }
 
@@ -1019,6 +1081,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const photoBtn = e.target.closest('.photo-btn');
       if (photoBtn) {
         handlePhotoAction(photoBtn.getAttribute('data-image-id'));
+        return;
+      }
+
+      // 削除ボタン
+      const deleteBtn = e.target.closest('.delete-btn');
+      if (deleteBtn) {
+        const rowId = deleteBtn.getAttribute('data-row');
+        const imageId = deleteBtn.getAttribute('data-image-id') || '';
+        await handleDeleteAction(rowId, imageId, deleteBtn);
         return;
       }
 
