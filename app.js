@@ -998,6 +998,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const result = await response.json();
 
       if (result.status === 'success') {
+        if (result.action && result.action !== 'delete') {
+          throw new Error('GASが古いバージョンのまま実行されています。スプレッドシートのGASエディタでv7コードを貼り付け、「デプロイを管理」から【新バージョン】として再デプロイしてください。');
+        }
         showMessage('日報を削除しました！', 'success');
         allNippouData = null; // キャッシュクリア
         if (typeof closeCardModal === 'function') closeCardModal();
@@ -1016,7 +1019,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (err) {
       console.error(err);
-      showMessage('削除処理に失敗しました。', 'error');
+      showMessage(err.message || '削除処理に失敗しました。', 'error');
       deleteBtn.innerHTML = originalText;
       deleteBtn.disabled = false;
     }
